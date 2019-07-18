@@ -42,6 +42,21 @@ func (registry *Registry) UploadBlob(repository string, digest digest.Digest, co
 	return err
 }
 
+func (registry *Registry) MountBlob(repository string, digest digest.Digest, fromrepo string) error {
+	url := registry.url("/v2/%s/blobs/uploads/?mount=%s&from=%s", repository, digest, fromrepo)
+	registry.Logf("registry.blob.mount url=%s repository=%s digest=%s from=%s", url, repository, digest, fromrepo)
+
+	resp, err := registry.Client.Post(url, "application/octet-stream", nil)
+	if err != nil {
+		return err
+	}
+	if resp != nil {
+		defer resp.Body.Close()
+	}
+
+	return nil
+}
+
 func (registry *Registry) HasBlob(repository string, digest digest.Digest) (bool, error) {
 	checkUrl := registry.url("/v2/%s/blobs/%s", repository, digest)
 	registry.Logf("registry.blob.check url=%s repository=%s digest=%s", checkUrl, repository, digest)
