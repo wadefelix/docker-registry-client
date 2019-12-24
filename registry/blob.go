@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"io/ioutil"
 
 	"github.com/docker/distribution"
 	digest "github.com/opencontainers/go-digest"
@@ -19,6 +20,25 @@ func (registry *Registry) DownloadBlob(repository string, digest digest.Digest) 
 	}
 
 	return resp.Body, nil
+}
+
+func (registry *Registry) GetBlobContent(repository string, digest digest.Digest) ([]byte, error) {
+	url := registry.url("/v2/%s/blobs/%s", repository, digest)
+	registry.Logf("registry.blob.download url=%s repository=%s digest=%s", url, repository, digest)
+
+	resp, err := registry.Client.Get(url)
+	if resp != nil {
+		defer resp.Body.Close()
+	}
+	if err != nil {
+		return nil, err
+	}
+	buf, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return buf, nil
 }
 
 func (registry *Registry) UploadBlob(repository string, digest digest.Digest, content io.Reader) error {
@@ -47,11 +67,11 @@ func (registry *Registry) MountBlob(repository string, digest digest.Digest, fro
 	registry.Logf("registry.blob.mount url=%s repository=%s digest=%s from=%s", url, repository, digest, fromrepo)
 
 	resp, err := registry.Client.Post(url, "application/octet-stream", nil)
-	if err != nil {
-		return err
-	}
 	if resp != nil {
 		defer resp.Body.Close()
+	}
+	if err != nil {
+		return err
 	}
 
 	return nil
