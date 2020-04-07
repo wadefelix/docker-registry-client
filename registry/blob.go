@@ -2,9 +2,9 @@ package registry
 
 import (
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
-	"io/ioutil"
 
 	"github.com/docker/distribution"
 	digest "github.com/opencontainers/go-digest"
@@ -41,7 +41,6 @@ func (registry *Registry) GetBlobContent(repository string, digest digest.Digest
 	return buf, nil
 }
 
-func (registry *Registry) UploadBlob(repository string, digest digest.Digest, content io.Reader) error {
 // UploadBlob can be used to upload an FS layer or an image config file into the given repository.
 // It uploads the bytes read from content. Digest must match with the hash of those bytes.
 // In case of token authentication the HTTP request must be retried after a 401 Unauthorized response
