@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 )
 
 type LogfCallback func(format string, args ...interface{})
@@ -118,3 +119,8 @@ func (r *Registry) Ping() error {
 	}
 	return err
 }
+
+func (r *Registry) SetTimeout(duration time.Duration) {
+	r.Client.Timeout = duration
+}
+
