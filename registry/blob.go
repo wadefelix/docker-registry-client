@@ -80,7 +80,7 @@ func (registry *Registry) UploadBlob(repository string, digest digest.Digest, co
 	return nil
 }
 func (registry *Registry) UploadBlobChunked(repository string, digest digest.Digest, contBytes []byte) error {
-	chunkSize := 8096000
+	chunkSize := 256 * 1024 * 10
 	contLength := len(contBytes)
 
 	if contLength <= chunkSize {
@@ -110,6 +110,11 @@ func (registry *Registry) UploadBlobChunked(repository string, digest digest.Dig
 		registry.Logf("registry.blob.upload url=%s Content-Range=%s", uploadUrl, contRange)
 
 		resp, err := registry.Client.Do(upload)
+		if err != nil {
+			return err
+		}
+		location := resp.Header.Get("Location")
+		uploadUrl, err = url.Parse(location)
 		if err != nil {
 			return err
 		}
