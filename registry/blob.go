@@ -1,10 +1,13 @@
 package registry
 
 import (
+	"bytes"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strconv"
 
 	"github.com/docker/distribution"
 	digest "github.com/opencontainers/go-digest"
@@ -69,6 +72,67 @@ func (registry *Registry) UploadBlob(repository string, digest digest.Digest, co
 		upload.GetBody = getBody
 	}
 
+	resp, err := registry.Client.Do(upload)
+	if err != nil {
+		return err
+	}
+	_ = resp.Body.Close()
+	return nil
+}
+func (registry *Registry) UploadBlobChunked(repository string, digest digest.Digest, contBytes []byte) error {
+	chunkSize := 8096000
+	contLength := len(contBytes)
+
+	if contLength <= chunkSize {
+		return registry.UploadBlob(repository, digest, bytes.NewBuffer(contBytes), nil)
+	}
+
+	uploadUrl, err := registry.initiateUpload(repository)
+	if err != nil {
+		return err
+	}
+
+	chunk := contLength / chunkSize
+	lastChSize := contLength % chunkSize
+
+	for ch := 0; ch < chunk; ch++ {
+		rangeStart := ch * chunkSize
+		rangeEnd := rangeStart + chunkSize
+		content := bytes.NewBuffer(contBytes[rangeStart:rangeEnd])
+		upload, err := http.NewRequest("PATCH", uploadUrl.String(), content)
+		if err != nil {
+			return err
+		}
+		upload.Header.Set("Content-Type", "application/octet-stream")
+		upload.Header.Set("Content-Length", strconv.Itoa(chunkSize))
+		contRange := fmt.Sprintf("%d-%d", rangeStart, rangeEnd-1)
+		upload.Header.Set("Content-Range", contRange)
+		registry.Logf("registry.blob.upload url=%s Content-Range=%s", uploadUrl, contRange)
+
+		resp, err := registry.Client.Do(upload)
+		if err != nil {
+			return err
+		}
+		_ = resp.Body.Close()
+	}
+
+	q := uploadUrl.Query()
+	q.Set("digest", digest.String())
+	uploadUrl.RawQuery = q.Encode()
+
+	rangeStart := chunk * chunkSize
+	rangeEnd := contLength
+	content := bytes.NewBuffer(contBytes[rangeStart:rangeEnd])
+	upload, err := http.NewRequest("PUT", uploadUrl.String(), content)
+	if err != nil {
+		return err
+	}
+	upload.Header.Set("Content-Type", "application/octet-stream")
+	upload.Header.Set("Content-Length", strconv.Itoa(lastChSize))
+	contRange := fmt.Sprintf("%d-%d", rangeStart, rangeEnd-1)
+	upload.Header.Set("Content-Range", contRange)
+
+	registry.Logf("registry.blob.upload url=%s Content-Range=%s repository=%s digest=%s", uploadUrl, contRange, repository, digest)
 	resp, err := registry.Client.Do(upload)
 	if err != nil {
 		return err
