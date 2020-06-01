@@ -94,6 +94,7 @@ func (registry *Registry) UploadBlob2(repository string, digest digest.Digest, c
 		n, err := content.Read(chunkBuf[:])
 		bufReader := bytes.NewBuffer(chunkBuf)
 		// lastChunk := false
+		rangeStart += n
 		reqMethod := "PATCH"
 		if err == io.EOF {
 			registry.Logf("read the file finished")
