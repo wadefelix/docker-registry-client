@@ -79,6 +79,59 @@ func (registry *Registry) UploadBlob(repository string, digest digest.Digest, co
 	_ = resp.Body.Close()
 	return nil
 }
+func (registry *Registry) UploadBlob2(repository string, digest digest.Digest, content io.Reader) error {
+	const chunkSize int = 256 * 1025 * 10
+	var chunkBuf []byte = make([]byte, chunkSize)
+
+	uploadUrl, err := registry.initiateUpload(repository)
+	if err != nil {
+		return err
+	}
+
+	rangeStart := 0
+
+	for {
+		n, err := content.Read(chunkBuf[:])
+		bufReader := bytes.NewBuffer(chunkBuf)
+		// lastChunk := false
+		reqMethod := "PATCH"
+		if err == io.EOF {
+			registry.Logf("read the file finished")
+			// lastChunk = true
+			reqMethod = "PUT"
+			bufReader = nil
+		} else if err != nil {
+			return err
+		}
+
+		upload, err := http.NewRequest(reqMethod, uploadUrl.String(), bufReader)
+		if err != nil {
+			return err
+		}
+		upload.Header.Set("Content-Type", "application/octet-stream")
+		contRange := ""
+		if n > 0 {
+			upload.Header.Set("Content-Length", strconv.Itoa(n))
+			contRange = fmt.Sprintf("%d-%d", rangeStart, rangeStart+n-1)
+			upload.Header.Set("Content-Range", contRange)
+		}
+		registry.Logf("registry.blob.upload url=%s Method=%s Content-Range=%s repository=%s digest=%s",
+			uploadUrl, reqMethod, contRange, repository, digest)
+
+		resp, err := registry.Client.Do(upload)
+		if err != nil {
+			return err
+		}
+		location := resp.Header.Get("Location")
+		uploadUrl, err = url.Parse(location)
+		if err != nil {
+			return err
+		}
+		_ = resp.Body.Close()
+	}
+
+	return nil
+}
 func (registry *Registry) UploadBlobChunked(repository string, digest digest.Digest, contBytes []byte) error {
 	chunkSize := 256 * 1024 * 10
 	contLength := len(contBytes)
