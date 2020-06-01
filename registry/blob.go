@@ -109,14 +109,14 @@ func (registry *Registry) UploadBlob2(repository string, digest digest.Digest, c
 			return err
 		}
 		upload.Header.Set("Content-Type", "application/octet-stream")
+		upload.Header.Set("Content-Length", strconv.Itoa(n))
 		contRange := ""
 		if n > 0 {
-			upload.Header.Set("Content-Length", strconv.Itoa(n))
 			contRange = fmt.Sprintf("%d-%d", rangeStart, rangeStart+n-1)
 			upload.Header.Set("Content-Range", contRange)
 		}
-		registry.Logf("registry.blob.upload url=%s Method=%s Content-Range=%s repository=%s digest=%s",
-			uploadUrl, reqMethod, contRange, repository, digest)
+		registry.Logf("registry.blob.upload url=%s Method=%s Content-Range=%s Content-Length=%d repository=%s digest=%s",
+			uploadUrl, reqMethod, contRange, n, repository, digest)
 
 		resp, err := registry.Client.Do(upload)
 		if err != nil {
