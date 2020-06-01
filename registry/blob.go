@@ -99,7 +99,7 @@ func (registry *Registry) UploadBlob2(repository string, digest digest.Digest, c
 			registry.Logf("read the file finished")
 			// lastChunk = true
 			reqMethod = "PUT"
-			bufReader = nil
+			// bufReader = nil
 		} else if err != nil {
 			return err
 		}
